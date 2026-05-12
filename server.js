@@ -5,12 +5,26 @@ const PORT = process.env.PORT || 10000;
 
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("OK");
-});
-
 app.post("/", (req, res) => {
-  res.json({ ok: true });
+  console.log("REQ:", req.body);
+
+  return res.json({
+    type: "INTERACTION",
+    status: "SUCCEEDED",
+    data: {
+      appId: req.body?.data?.appId,
+      interactionId: req.body?.data?.interactionId,
+      interactions: [
+        {
+          type: "TOAST",
+          props: {
+            message: "JSON works 🔥",
+            status: "success"
+          }
+        }
+      ]
+    }
+  });
 });
 
 app.listen(PORT, () => {
