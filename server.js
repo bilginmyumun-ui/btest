@@ -5,8 +5,12 @@ const PORT = process.env.PORT || 10000;
 
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  res.send("OK - server is alive");
+});
+
 app.post("/", (req, res) => {
-  console.log("REQ:", req.body);
+  console.log("Incoming:", req.body);
 
   return res.json({
     type: "INTERACTION",
@@ -18,7 +22,7 @@ app.post("/", (req, res) => {
         {
           type: "TOAST",
           props: {
-            message: "JSON works 🔥",
+            message: "It works 🔥",
             status: "success"
           }
         }
