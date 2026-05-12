@@ -1,153 +1,163 @@
+// Bettermode Embed Simulator (Minimal Working Replica)
+// This simulates how Bettermode would:
+// 1. Load embed page
+// 2. Provide window context
+// 3. Call backend interaction endpoint
+// 4. Render simple UI blocks (TOAST / TEXT / IFRAME)
+
 import express from "express";
 
- 
-
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 
- 
-
-app.set("trust proxy", true);
 app.use(express.json());
 
- 
-
-app.get("/", (req, res) => {
-  res.send("Bettermode Render app is running");
-});
-
- 
-
+// -----------------------------
+// 1. SIMULATED EMBED PAGE
+// -----------------------------
 app.get("/embed", (req, res) => {
-  res.setHeader("Content-Type", "text/html");
-  res.setHeader("Content-Security-Policy", "frame-ancestors *");
+  const blockKey = req.query.blockKey || "chat";
+  const actorId = req.query.actorId || "test-user";
 
- 
-
-  res.send(`
+  res.send(`
 <!doctype html>
 <html>
 <head>
-<meta charset="utf-8" />
-<title>Iframe Test</title>
-<style>
-          body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f5f5ff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-          }
-
- 
-
-          .box {
-            padding: 32px;
-            border-radius: 16px;
-            background: white;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-            text-align: center;
-          }
-
- 
-
-          h1 {
-            margin: 0 0 12px;
-            font-size: 28px;
-          }
-
- 
-
-          p {
-            margin: 0;
-            font-size: 16px;
-            color: #555;
-          }
-</style>
+  <meta charset="utf-8" />
+  <title>Bettermode Embed Simulator</title>
+  <style>
+    body { font-family: Arial; margin: 0; padding: 20px; background:#f6f7fb; }
+    #app { max-width: 600px; margin: auto; }
+    .toast { padding:10px; background:#4caf50; color:white; border-radius:8px; margin-bottom:10px; }
+    .box { padding:20px; background:white; border-radius:12px; }
+    iframe { width:100%; border:0; border-radius:10px; }
+  </style>
 </head>
 <body>
-<div class="box">
-<h1>Iframe rendered successfully</h1>
-<p>This content is coming from the Render /embed endpoint.</p>
-</div>
+  <div id="app"></div>
+
+  <script>
+    // -----------------------------
+    // 2. BETTERMODE-LIKE CONTEXT
+    // -----------------------------
+    window.__BETTERMODE_CONTEXT__ = {
+      blockKey: "${blockKey}",
+      actorId: "${actorId}"
+    };
+
+    async function callBackend() {
+      const res = await fetch("/interaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: window.__BETTERMODE_CONTEXT__
+        })
+      });
+
+      return await res.json();
+    }
+
+    function render(interaction) {
+      const app = document.getElementById("app");
+      app.innerHTML = "";
+
+      const i = interaction.data.interactions[0];
+
+      // TOAST
+      if (i.type === "TOAST") {
+        const div = document.createElement("div");
+        div.className = "toast";
+        div.innerText = i.props.message;
+        app.appendChild(div);
+      }
+
+      // TEXT
+      if (i.type === "TEXT") {
+        const div = document.createElement("div");
+        div.className = "box";
+        div.innerText = i.props.text;
+        app.appendChild(div);
+      }
+
+      // IFRAME
+      if (i.type === "IFRAME") {
+        const iframe = document.createElement("iframe");
+        iframe.src = i.props.src;
+        iframe.height = i.props.height || 500;
+        app.appendChild(iframe);
+      }
+    }
+
+    callBackend().then(render);
+  </script>
 </body>
 </html>
-  `);
+  `);
 });
 
- 
+// -----------------------------
+// 3. SIMULATED BETTERMODE INTERACTION ENDPOINT
+// -----------------------------
+app.post("/interaction", (req, res) => {
+  console.log("Incoming interaction:", req.body);
 
-app.post("/", (req, res) => {
-  const body = req.body || {};
+  const { blockKey } = req.body.data;
 
- 
+  // CHANGE THIS TO TEST DIFFERENT BEHAVIOR
 
-  console.log("Incoming body:", JSON.stringify(body, null, 2));
+  if (blockKey === "chat") {
+    return res.json({
+      type: "INTERACTION",
+      status: "SUCCEEDED",
+      data: {
+        interactions: [
+          {
+            type: "TOAST",
+            props: {
+              message: "✅ Simulator working",
+              status: "success"
+            }
+          }
+        ]
+      }
+    });
+  }
 
- 
+  if (blockKey === "iframe") {
+    return res.json({
+      type: "INTERACTION",
+      status: "SUCCEEDED",
+      data: {
+        interactions: [
+          {
+            type: "IFRAME",
+            props: {
+              src: "https://example.com",
+              height: 600
+            }
+          }
+        ]
+      }
+    });
+  }
 
-  const appId = body?.data?.appId;
-  const interactionId = body?.data?.interactionId;
-
- 
-
-  const baseUrl = `${req.protocol}://${req.get("host")}`;
-  const iframeUrl = `${baseUrl}/embed`;
-
- 
-
-  const responsePayload = {
-    type: "INTERACTION",
-    status: "SUCCEEDED",
-    data: {
-      appId,
-      interactionId,
-      interactions: [
-        {
-          type: "SHOW",
-          id: interactionId,
-          slate: {
-            rootBlock: "root",
-            blocks: [
-              {
-                id: "root",
-                name: "Container",
-                props: JSON.stringify({
-                  direction: "vertical",
-                  padding: "sm"
-                }),
-                children: JSON.stringify(["iframe-child"])
-              },
-              {
-                id: "iframe-child",
-                name: "Iframe",
-                props: JSON.stringify({
-                  src: iframeUrl,
-                  height: 720,
-                  title: "Iframe Test"
-                }),
-                children: JSON.stringify([])
-              }
-            ]
-          }
-        }
-      ]
-    }
-  };
-
- 
-
-  console.log("Response payload:", JSON.stringify(responsePayload, null, 2));
-
- 
-
-  return res.status(200).json(responsePayload);
+  return res.json({
+    type: "INTERACTION",
+    status: "SUCCEEDED",
+    data: {
+      interactions: [
+        {
+          type: "TEXT",
+          props: {
+            text: "Default block rendered"
+          }
+        }
+      ]
+    }
+  });
 });
-
- 
 
 app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log("Bettermode Embed Simulator running on", PORT);
+  console.log("Open: http://localhost:" + PORT + "/embed?blockKey=chat&actorId=test");
 });
