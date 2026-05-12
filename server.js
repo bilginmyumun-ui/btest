@@ -1,10 +1,30 @@
+import express from "express";
+
+const app = express();
+const PORT = process.env.PORT || 10000;
+
+app.use(express.json());
+
+// --------------------
+// HEALTH CHECK
+// --------------------
+app.get("/", (req, res) => {
+  res.send("Server is running");
+});
+
+// --------------------
+// BETTERMODE INTERACTION
+// --------------------
 app.post("/", (req, res) => {
   const body = req.body || {};
+
+  console.log("Incoming:", JSON.stringify(body, null, 2));
 
   const appId = body?.data?.appId;
   const interactionId = body?.data?.interactionId;
 
-  const iframeUrl = "https://bettermode.com/hub/community/ask-for-help";
+  const iframeUrl =
+    "https://bettermode.com/hub/community/ask-for-help";
 
   const responsePayload = {
     type: "INTERACTION",
@@ -34,7 +54,7 @@ app.post("/", (req, res) => {
                 props: JSON.stringify({
                   src: iframeUrl,
                   height: 720,
-                  title: "Bettermode Community"
+                  title: "Bettermode"
                 }),
                 children: JSON.stringify([])
               }
@@ -45,5 +65,9 @@ app.post("/", (req, res) => {
     }
   };
 
-  return res.status(200).json(responsePayload);
+  return res.json(responsePayload);
+});
+
+app.listen(PORT, () => {
+  console.log("Server running on", PORT);
 });
