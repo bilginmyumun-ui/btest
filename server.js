@@ -1,31 +1,18 @@
-{
-  "type": "INTERACTION",
-  "status": "SUCCEEDED",
-  "data": {
-    "appId": "D48WpcgssldD",
-    "interactionId": "TEST_INTERACTION",
-    "interactions": [
-      {
-        "type": "SHOW",
-        "id": "test-basic",
-        "slate": {
-          "rootBlock": "root",
-          "blocks": [
-            {
-              "id": "root",
-              "name": "Container",
-              "props": "{\"direction\":\"vertical\"}",
-              "children": "[\"text1\"]"
-            },
-            {
-              "id": "text1",
-              "name": "Text",
-              "props": "{\"text\":\"✅ Dynamic Block is working\"}",
-              "children": "[]"
-            }
-          ]
-        }
-      }
-    ]
-  }
-}
+import express from "express";
+
+const app = express();
+const PORT = process.env.PORT || 10000;
+
+app.use(express.json());
+
+app.get("/", (req, res) => {
+  res.send("OK");
+});
+
+app.post("/", (req, res) => {
+  res.json({ ok: true });
+});
+
+app.listen(PORT, () => {
+  console.log("Server running on", PORT);
+});
