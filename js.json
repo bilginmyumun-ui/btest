@@ -1,0 +1,17 @@
+{
+  "type": "INTERACTION",
+  "status": "SUCCEEDED",
+  "data": {
+    "appId": "...",
+    "interactionId": "...",
+    "interactions": [
+      {
+        "type": "TOAST",
+        "props": {
+          "message": "WORKS 🚀",
+          "status": "success"
+        }
+      }
+    ]
+  }
+}
