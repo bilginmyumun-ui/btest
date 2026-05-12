@@ -1,9 +1,10 @@
-// Bettermode Embed Simulator (Minimal Working Replica)
-// This simulates how Bettermode would:
-// 1. Load embed page
-// 2. Provide window context
-// 3. Call backend interaction endpoint
-// 4. Render simple UI blocks (TOAST / TEXT / IFRAME)
+// 1-Click Bettermode Debugger UI
+// A minimal full-stack debug dashboard for Bettermode interactions
+// Shows:
+// - incoming requests
+// - last response
+// - render state
+// - live logs
 
 import express from "express";
 
@@ -12,152 +13,120 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// -----------------------------
-// 1. SIMULATED EMBED PAGE
-// -----------------------------
-app.get("/embed", (req, res) => {
-  const blockKey = req.query.blockKey || "chat";
-  const actorId = req.query.actorId || "test-user";
+let lastRequest = null;
+let lastResponse = null;
+let logs = [];
 
+function log(msg) {
+  const entry = `[${new Date().toISOString()}] ${msg}`;
+  logs.push(entry);
+  if (logs.length > 50) logs.shift();
+  console.log(entry);
+}
+
+// -------------------------
+// DEBUG DASHBOARD UI
+// -------------------------
+app.get("/debug", (req, res) => {
   res.send(`
 <!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Bettermode Embed Simulator</title>
+  <title>Bettermode Debugger</title>
   <style>
-    body { font-family: Arial; margin: 0; padding: 20px; background:#f6f7fb; }
-    #app { max-width: 600px; margin: auto; }
-    .toast { padding:10px; background:#4caf50; color:white; border-radius:8px; margin-bottom:10px; }
-    .box { padding:20px; background:white; border-radius:12px; }
-    iframe { width:100%; border:0; border-radius:10px; }
+    body { font-family: Arial; margin:0; background:#0f172a; color:white; }
+    .wrap { display:grid; grid-template-columns: 1fr 1fr; height:100vh; }
+    .panel { padding:20px; overflow:auto; border-right:1px solid #1e293b; }
+    pre { background:#111827; padding:10px; border-radius:8px; overflow:auto; }
+    h2 { color:#38bdf8; }
+    .ok { color:#22c55e; }
+    .warn { color:#f59e0b; }
   </style>
 </head>
 <body>
-  <div id="app"></div>
+<div class="wrap">
 
-  <script>
-    // -----------------------------
-    // 2. BETTERMODE-LIKE CONTEXT
-    // -----------------------------
-    window.__BETTERMODE_CONTEXT__ = {
-      blockKey: "${blockKey}",
-      actorId: "${actorId}"
-    };
+  <div class="panel">
+    <h2>📥 Last Request</h2>
+    <pre id="req">${JSON.stringify(lastRequest, null, 2)}</pre>
 
-    async function callBackend() {
-      const res = await fetch("/interaction", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          data: window.__BETTERMODE_CONTEXT__
-        })
-      });
+    <h2>📤 Last Response</h2>
+    <pre id="res">${JSON.stringify(lastResponse, null, 2)}</pre>
+  </div>
 
-      return await res.json();
-    }
+  <div class="panel">
+    <h2>📜 Logs</h2>
+    <pre>${logs.join("\n")}</pre>
+  </div>
 
-    function render(interaction) {
-      const app = document.getElementById("app");
-      app.innerHTML = "";
+</div>
 
-      const i = interaction.data.interactions[0];
+<script>
+setInterval(async () => {
+  const res = await fetch('/debug-state');
+  const data = await res.json();
 
-      // TOAST
-      if (i.type === "TOAST") {
-        const div = document.createElement("div");
-        div.className = "toast";
-        div.innerText = i.props.message;
-        app.appendChild(div);
-      }
-
-      // TEXT
-      if (i.type === "TEXT") {
-        const div = document.createElement("div");
-        div.className = "box";
-        div.innerText = i.props.text;
-        app.appendChild(div);
-      }
-
-      // IFRAME
-      if (i.type === "IFRAME") {
-        const iframe = document.createElement("iframe");
-        iframe.src = i.props.src;
-        iframe.height = i.props.height || 500;
-        app.appendChild(iframe);
-      }
-    }
-
-    callBackend().then(render);
-  </script>
+  document.getElementById('req').innerText = JSON.stringify(data.lastRequest, null, 2);
+  document.getElementById('res').innerText = JSON.stringify(data.lastResponse, null, 2);
+}, 2000);
+</script>
 </body>
 </html>
   `);
 });
 
-// -----------------------------
-// 3. SIMULATED BETTERMODE INTERACTION ENDPOINT
-// -----------------------------
+// -------------------------
+// DEBUG STATE API
+// -------------------------
+app.get("/debug-state", (req, res) => {
+  res.json({
+    lastRequest,
+    lastResponse,
+    logs
+  });
+});
+
+// -------------------------
+// BETTERMODE INTERACTION ENDPOINT
+// -------------------------
 app.post("/interaction", (req, res) => {
-  console.log("Incoming interaction:", req.body);
+  lastRequest = req.body;
 
-  const { blockKey } = req.body.data;
+  log("Incoming interaction");
 
-  // CHANGE THIS TO TEST DIFFERENT BEHAVIOR
-
-  if (blockKey === "chat") {
-    return res.json({
-      type: "INTERACTION",
-      status: "SUCCEEDED",
-      data: {
-        interactions: [
-          {
-            type: "TOAST",
-            props: {
-              message: "✅ Simulator working",
-              status: "success"
-            }
-          }
-        ]
-      }
-    });
-  }
-
-  if (blockKey === "iframe") {
-    return res.json({
-      type: "INTERACTION",
-      status: "SUCCEEDED",
-      data: {
-        interactions: [
-          {
-            type: "IFRAME",
-            props: {
-              src: "https://example.com",
-              height: 600
-            }
-          }
-        ]
-      }
-    });
-  }
-
-  return res.json({
+  const response = {
     type: "INTERACTION",
     status: "SUCCEEDED",
     data: {
+      appId: req.body?.data?.appId,
+      interactionId: req.body?.data?.interactionId,
       interactions: [
         {
-          type: "TEXT",
+          type: "TOAST",
           props: {
-            text: "Default block rendered"
+            message: "Debugger active 🚀",
+            status: "success"
           }
         }
       ]
     }
-  });
+  };
+
+  lastResponse = response;
+  log("Response sent");
+
+  return res.json(response);
+});
+
+// -------------------------
+// HEALTH CHECK
+// -------------------------
+app.get("/", (req, res) => {
+  res.send("Bettermode Debugger Running");
 });
 
 app.listen(PORT, () => {
-  console.log("Bettermode Embed Simulator running on", PORT);
-  console.log("Open: http://localhost:" + PORT + "/embed?blockKey=chat&actorId=test");
+  console.log("Debugger running on", PORT);
+  console.log("Open /debug for UI");
 });
